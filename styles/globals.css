@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  min-height: 100vh;
+  background-color: #fff;
+}
+
+a {
+  color: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid #E6C200;
+  outline-offset: 2px;
+}
+
+::-moz-selection {
+  background-color: rgba(230, 194, 0, 0.2);
+}
+
+::selection {
+  background-color: rgba(230, 194, 0, 0.2);
+}
+
+.sheen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(130deg, rgba(230, 194, 0, 0) 0%, rgba(230, 194, 0, 0.35) 50%, rgba(230, 194, 0, 0) 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.sheen:hover::after {
+  opacity: 1;
+}
+
+.gradient-border {
+  background: linear-gradient(120deg, rgba(230, 194, 0, 0.15), rgba(230, 194, 0, 0.45), rgba(230, 194, 0, 0.15));
+  background-size: 200% 200%;
+  animation: borderShift 12s ease infinite;
+}
+
+@keyframes borderShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
