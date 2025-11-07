@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
-import { useSessionContext } from '@supabase/auth-helpers-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Button } from '../components/Button';
@@ -10,11 +9,12 @@ import { NavBar } from '../components/NavBar';
 import { SectionHeading } from '../components/SectionHeading';
 import { sampleUpcomingDrops } from '../data/drops';
 import type { Drop } from '../lib/types';
+import { useSupabase } from '../lib/supabase-context';
 
 export default function UpcomingDropsPage() {
   const [drops, setDrops] = useState<Drop[]>(sampleUpcomingDrops as Drop[]);
   const [selected, setSelected] = useState<Drop | null>(drops[0] ?? null);
-  const { session } = useSessionContext();
+  const { session } = useSupabase();
 
   useEffect(() => {
     const loadDrops = async () => {

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useSessionContext } from '@supabase/auth-helpers-react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Button } from '../components/Button';
@@ -11,6 +10,7 @@ import { NavBar } from '../components/NavBar';
 import { ProgressBar } from '../components/ProgressBar';
 import { SectionHeading } from '../components/SectionHeading';
 import type { Drop, Reservation } from '../lib/types';
+import { useSupabase } from '../lib/supabase-context';
 
 interface DashboardResponse {
   profile: {
@@ -25,7 +25,7 @@ interface DashboardResponse {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { session, isLoading: sessionLoading } = useSessionContext();
+  const { session, isLoading: sessionLoading } = useSupabase();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -183,6 +183,7 @@ export default function DashboardPage() {
                       onAction={() => handleReserve(drop.id)}
                       disabled={limitReached || submitting}
                       actionLabel={limitReached ? 'Limite Atingido' : 'Reservar Agora'}
+                      subtle
                     />
                   ))}
                 </div>
@@ -212,7 +213,7 @@ export default function DashboardPage() {
                       status="Em Breve"
                       onAction={() => handleReserve(drop.id)}
                       disabled={limitReached || submitting}
-                      actionLabel={limitReached ? 'Limite Atingido' : 'Reservar'}
+                      actionLabel={limitReached ? 'Limite Atingido' : 'Reservar Agora'}
                       subtle
                     />
                   ))}

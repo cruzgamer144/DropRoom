@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { useSessionContext } from '@supabase/auth-helpers-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { Button } from '../../components/Button';
+import { useSupabase } from '../../lib/supabase-context';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const { session, isLoading } = useSessionContext();
+  const { session, isLoading } = useSupabase();
   const invite = typeof router.query.invite === 'string' ? router.query.invite : '';
 
   useEffect(() => {

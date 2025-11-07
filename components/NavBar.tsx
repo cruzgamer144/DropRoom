@@ -1,9 +1,9 @@
+import { useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { Button } from './Button';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { useCallback } from 'react';
 import toast from 'react-hot-toast';
+import { Button } from './Button';
+import { useSupabase } from '../lib/supabase-context';
 
 interface NavBarProps {
   minimal?: boolean;
@@ -11,7 +11,7 @@ interface NavBarProps {
 
 export function NavBar({ minimal }: NavBarProps) {
   const router = useRouter();
-  const supabase = useSupabaseClient();
+  const { supabase } = useSupabase();
 
   const handleSignOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
