@@ -89,18 +89,22 @@ returns trigger as $$
 declare
   limit_value integer;
   total_count integer;
-  month_key date;
+  current_month_key date;
 begin
   select monthly_limit into limit_value from public.profiles where id = new.user_id;
   if limit_value is null then
     return new;
   end if;
-  month_key := date_trunc('month', timezone('utc', now()));
-  select count(*) into total_count from public.reservations where user_id = new.user_id and month_key = month_key;
+  current_month_key := date_trunc('month', timezone('utc', now()));
+  select count(*)
+    into total_count
+    from public.reservations
+   where user_id = new.user_id
+     and month_key = current_month_key;
   if total_count >= limit_value then
     raise exception 'Monthly limit reached';
   end if;
-  new.month_key = month_key;
+  new.month_key = current_month_key;
   return new;
 end;
 $$ language plpgsql;

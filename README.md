@@ -37,6 +37,17 @@ npm run dev
 
 O site estará disponível em `http://localhost:3000`.
 
+### Preparar a base de dados Supabase
+
+1. No painel do teu projecto Supabase, abre o **SQL Editor**.
+2. Copia o conteúdo de `supabase/schema.sql` e executa para criar tabelas, políticas e triggers.
+3. Na mesma área, executa o conteúdo de `supabase/seed.sql` para criar convites e drops de exemplo (inclui o convite `DROP-ELITE-01`
+   associado ao email `vip@droproom.club`).
+4. Garante que as políticas foram aplicadas e que o convite pretendido surge na tabela `public.invites` com `used_at` nulo.
+
+> 💡 Sempre que precisares de mais convites de teste, duplica as `INSERT` existentes em `supabase/seed.sql` ou cria novos registos
+> diretamente na tabela `public.invites` via dashboard.
+
 ## Deploy na Vercel
 
 - Configura as mesmas variáveis de ambiente no painel da Vercel.
