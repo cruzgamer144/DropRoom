@@ -16,10 +16,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const supabase = getSupabaseAdminClient();
+    const normalizedCode = inviteCode.trim().toUpperCase();
     const { data: invite, error: inviteError } = await supabase
       .from('invites')
       .select('*')
-      .eq('code', inviteCode.trim())
+      .eq('code', normalizedCode)
       .maybeSingle();
 
     if (inviteError || !invite) {
@@ -38,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `${SITE_URL}/auth/callback?invite=${encodeURIComponent(inviteCode.trim())}`
+        emailRedirectTo: `${SITE_URL}/auth/callback?invite=${encodeURIComponent(normalizedCode)}`
       }
     });
 

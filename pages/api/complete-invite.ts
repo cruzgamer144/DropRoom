@@ -20,11 +20,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const supabase = getSupabaseAdminClient();
+  const normalizedCode = inviteCode.trim().toUpperCase();
 
   const { data: invite, error } = await supabase
     .from('invites')
     .select('*')
-    .eq('code', inviteCode.trim())
+    .eq('code', normalizedCode)
     .maybeSingle();
 
   if (error || !invite) {
@@ -39,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { error: updateInviteError } = await supabase
     .from('invites')
     .update({ used_by: user.id, used_at: now })
-    .eq('code', inviteCode.trim());
+    .eq('code', normalizedCode);
 
   if (updateInviteError) {
     return res.status(500).json({ message: 'Não foi possível marcar convite como usado.' });

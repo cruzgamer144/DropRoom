@@ -9,7 +9,8 @@ import { useSupabase } from '../../lib/supabase-context';
 export default function AuthCallbackPage() {
   const router = useRouter();
   const { session, isLoading } = useSupabase();
-  const invite = typeof router.query.invite === 'string' ? router.query.invite : '';
+  const invite =
+    typeof router.query.invite === 'string' ? router.query.invite.trim().toUpperCase() : '';
 
   useEffect(() => {
     const finalize = async () => {
