@@ -2,7 +2,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getDropBySlug, getDashboardData } from "@/lib/queries";
 import { ReservationForm } from "@/components/dashboard/reservation-form";
-import { getMonthKey } from "@/lib/utils";
+import { formatPrice, getMonthKey } from "@/lib/utils";
 
 interface DropPageProps {
   params: { slug: string };
@@ -43,7 +43,9 @@ export default async function DropDetailPage({ params }: DropPageProps) {
         </div>
         <p className="text-base text-slate-600">{drop.description}</p>
         <div className="space-y-1 text-sm text-slate-600">
-          <p><span className="font-medium text-slate-900">Preço:</span> €{drop.price.toFixed(2)}</p>
+          <p>
+            <span className="font-medium text-slate-900">Preço:</span> {formatPrice(drop.price)}
+          </p>
           <p><span className="font-medium text-slate-900">Data:</span> {new Date(drop.drop_date).toLocaleDateString("pt-PT")}</p>
           <p><span className="font-medium text-slate-900">Tamanhos:</span> {drop.sizes.join(", ")}</p>
         </div>

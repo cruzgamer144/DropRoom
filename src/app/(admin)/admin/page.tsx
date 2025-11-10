@@ -6,6 +6,7 @@ import { AdminTable } from "@/components/admin/admin-table";
 import { upsertDrop, generateInvites, updateReservationStatus, toggleUserStatus } from "@/lib/actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { formatPrice } from "@/lib/utils";
 
 export default async function AdminPage() {
   const supabase = createSupabaseServerClient();
@@ -98,7 +99,7 @@ export default async function AdminPage() {
             rows={drops.map((drop) => [
               drop.name,
               new Date(drop.drop_date).toLocaleDateString("pt-PT"),
-              `€${drop.price.toFixed(2)}`,
+              formatPrice(drop.price),
               drop.active ? "Ativo" : "Inativo",
             ])}
           />

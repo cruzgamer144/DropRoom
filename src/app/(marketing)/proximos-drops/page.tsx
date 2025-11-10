@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { formatPrice } from "@/lib/utils";
 
 export default async function UpcomingDropsPage() {
   const drops = await getUpcomingDrops();
@@ -42,7 +43,9 @@ export default async function UpcomingDropsPage() {
                   <p className="text-sm text-slate-600 line-clamp-3">{drop.description}</p>
                 </div>
                 <div className="text-sm text-slate-500">
-                  <p><span className="font-medium text-slate-900">Preço:</span> €{drop.price.toFixed(2)}</p>
+                  <p>
+                    <span className="font-medium text-slate-900">Preço:</span> {formatPrice(drop.price)}
+                  </p>
                   <p><span className="font-medium text-slate-900">Data:</span> {new Date(drop.drop_date).toLocaleDateString("pt-PT")}</p>
                   <p><span className="font-medium text-slate-900">Tamanhos:</span> {drop.sizes.join(", ")}</p>
                 </div>

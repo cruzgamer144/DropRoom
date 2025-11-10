@@ -34,6 +34,12 @@ export type Reservation = {
   status: ReservationStatus;
   created_at: string;
   month_key: string;
+  drop?: {
+    name: string;
+    slug: string;
+    image_url: string | null;
+    price: number;
+  } | null;
 };
 
 export type Invite = {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Drop } from "@/types/database";
 import { format } from "date-fns";
 import { ptPT } from "date-fns/locale";
+import { formatPrice } from "@/lib/utils";
 
 export function CardDrop({ drop }: { drop: Drop }) {
   return (
@@ -38,7 +39,7 @@ export function CardDrop({ drop }: { drop: Drop }) {
         </div>
         <p className="flex-1 text-sm text-slate-600 line-clamp-3">{drop.description}</p>
         <div className="mt-auto flex items-center justify-between text-sm text-slate-500">
-          <span className="text-base font-semibold text-slate-900">€{drop.price.toFixed(2)}</span>
+          <span className="text-base font-semibold text-slate-900">{formatPrice(drop.price)}</span>
           <span>Tamanhos: {drop.sizes.join(", ")}</span>
         </div>
         <Link href={`/drops/${drop.slug}`} className="mt-4">

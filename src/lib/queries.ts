@@ -1,6 +1,11 @@
 import { createSupabaseServerClient } from "@/lib/supabase-client";
-import { getMonthKey } from "@/lib/utils";
+import { getMonthKey, parseNumber } from "@/lib/utils";
 import { Drop, Invite, Profile, Reservation } from "@/types/database";
+
+const normalizeDropRecord = (drop: any): Drop => ({
+  ...drop,
+  price: parseNumber(drop?.price),
+});
 
 export async function getActiveDrops() {
   const supabase = createSupabaseServerClient();
@@ -9,7 +14,7 @@ export async function getActiveDrops() {
     .select("id, name, slug, description, image_url, price, drop_date, active, sizes")
     .eq("active", true)
     .order("drop_date", { ascending: true });
-  return (data ?? []) as Drop[];
+  return (data ?? []).map((drop) => normalizeDropRecord(drop));
 }
 
 export async function getUpcomingDrops() {
@@ -18,7 +23,7 @@ export async function getUpcomingDrops() {
     .from("drops")
     .select("id, name, slug, description, image_url, price, drop_date, active, sizes")
     .order("drop_date", { ascending: true });
-  return (data ?? []) as Drop[];
+  return (data ?? []).map((drop) => normalizeDropRecord(drop));
 }
 
 export async function getDropBySlug(slug: string) {
@@ -28,7 +33,7 @@ export async function getDropBySlug(slug: string) {
     .select("id, name, slug, description, image_url, price, drop_date, active, sizes")
     .eq("slug", slug)
     .maybeSingle();
-  return (data as Drop | null) ?? null;
+  return data ? normalizeDropRecord(data) : null;
 }
 
 export async function getDashboardData() {
@@ -66,7 +71,12 @@ export async function getDashboardData() {
     status: reservation.status,
     created_at: reservation.created_at,
     month_key: reservation.month_key,
-    drop: reservation.drops,
+    drop: reservation.drops
+      ? {
+          ...reservation.drops,
+          price: parseNumber(reservation.drops.price),
+        }
+      : null,
   }));
 
   return {
@@ -90,7 +100,7 @@ export async function getAdminData() {
   ]);
 
   return {
-    drops: (drops.data ?? []) as Drop[],
+    drops: (drops.data ?? []).map((drop) => normalizeDropRecord(drop)),
     invites: (invites.data ?? []) as Invite[],
     reservations: reservations.data ?? [],
     users: (users.data ?? []) as Profile[],
