@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
 
 const initialState = { error: "", success: false };
+type SetPasswordState = typeof initialState;
 
 interface SetPasswordFormProps {
   email?: string;
@@ -19,13 +20,15 @@ interface SetPasswordFormProps {
 export function SetPasswordForm({ email }: SetPasswordFormProps) {
   const router = useRouter();
   const { pushToast } = useToast();
-  const [state, formAction] = useFormState(async (_prevState, formData) => {
+  const setPasswordReducer = async (_prevState: SetPasswordState, formData: FormData): Promise<SetPasswordState> => {
     const result = await completePasswordSetup(formData);
     return {
       error: result?.error ?? "",
       success: Boolean(result?.success),
     };
-  }, initialState);
+  };
+
+  const [state, formAction] = useFormState<SetPasswordState, FormData>(setPasswordReducer, initialState);
 
   useEffect(() => {
     if (state.error) {
