@@ -36,7 +36,7 @@ interface ResetPasswordFormProps {
 export function ResetPasswordForm({ email }: ResetPasswordFormProps) {
   const router = useRouter();
   const { pushToast } = useToast();
-  const [state, formAction] = useFormState<ResetPasswordState>(
+  const [state, formAction] = useFormState<ResetPasswordState, FormData>(
     resetPasswordReducer,
     initialState,
   );
