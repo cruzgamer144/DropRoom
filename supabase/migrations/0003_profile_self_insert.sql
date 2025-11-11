@@ -6,7 +6,7 @@ begin
     from pg_policies
     where schemaname = 'public'
       and tablename = 'profiles'
-      and polname = 'Profiles self insert'
+      and policyname = 'Profiles self insert'
   ) then
     create policy "Profiles self insert" on public.profiles
       for insert with check (id = auth.uid());
