@@ -108,103 +108,128 @@ interface SyncInviteParams {
   monthKey: string;
 }
 
-async function syncInviteAndProfile(
-  {
-    inviteId,
-    inviteCode,
-    userId,
-    email,
-    monthKey,
-  }: SyncInviteParams,
-  supabase: ReturnType<typeof createSupabaseServerClient>
-) {
+type ServiceSyncResult = "success" | "fallback";
+
+const shouldFallbackToRpc = (message: string | null | undefined) =>
+  (message ?? "").toLowerCase().includes("has_password");
+
+async function syncInviteWithServiceRole(
+  params: SyncInviteParams
+): Promise<ServiceSyncResult> {
   const serviceSupabase = tryCreateSupabaseServiceRoleClient();
 
-  if (serviceSupabase) {
-    const inviteResponse = await serviceSupabase
-      .from("invites")
-      .select("id, status")
-      .eq("id", inviteId)
-      .maybeSingle();
+  if (!serviceSupabase) {
+    return "fallback";
+  }
 
-    if (
-      inviteResponse.error ||
-      !inviteResponse.data ||
-      inviteResponse.data.status !== "active"
-    ) {
-      throw new InviteSyncError("INVITE_INVALID");
+  const { inviteId, userId, email, monthKey } = params;
+
+  const inviteResponse = await serviceSupabase
+    .from("invites")
+    .select("id, status")
+    .eq("id", inviteId)
+    .maybeSingle();
+
+  if (
+    inviteResponse.error ||
+    !inviteResponse.data ||
+    inviteResponse.data.status !== "active"
+  ) {
+    throw new InviteSyncError("INVITE_INVALID");
+  }
+
+  const profileResponse = await serviceSupabase
+    .from("profiles")
+    .select(
+      "role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, has_password"
+    )
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileResponse.error) {
+    if (shouldFallbackToRpc(profileResponse.error.message)) {
+      return "fallback";
     }
 
-    const profileResponse = await serviceSupabase
-      .from("profiles")
-      .select(
-        "role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, has_password"
-      )
-      .eq("id", userId)
-      .maybeSingle();
+    throw new InviteSyncError("PROFILE_UPSERT_FAILED");
+  }
 
-    if (profileResponse.error) {
-      throw new InviteSyncError("PROFILE_UPSERT_FAILED");
+  const carryOverCount =
+    profileResponse.data?.month_key === monthKey
+      ? profileResponse.data?.monthly_count ?? 0
+      : 0;
+  const monthlyLimit = profileResponse.data?.monthly_limit ?? 3;
+  const role = profileResponse.data?.role ?? "member";
+  const electronicsCarryOver =
+    profileResponse.data?.electronics_month_key === monthKey
+      ? profileResponse.data?.electronics_monthly_count ?? 0
+      : 0;
+  const electronicsLimit = profileResponse.data?.electronics_monthly_limit ?? 3;
+  const hasPassword = profileResponse.data?.has_password ?? false;
+
+  const profilePayload: Record<string, unknown> = {
+    id: userId,
+    email,
+    role,
+    monthly_limit: monthlyLimit,
+    monthly_count: carryOverCount,
+    month_key: monthKey,
+    electronics_monthly_limit: electronicsLimit,
+    electronics_monthly_count: electronicsCarryOver,
+    electronics_month_key: monthKey,
+    status: "active",
+  };
+
+  if (Object.prototype.hasOwnProperty.call(profileResponse.data ?? {}, "has_password")) {
+    profilePayload.has_password = hasPassword;
+  }
+
+  const { error: upsertError } = await serviceSupabase
+    .from("profiles")
+    .upsert(profilePayload);
+
+  if (upsertError) {
+    if (shouldFallbackToRpc(upsertError.message)) {
+      return "fallback";
     }
 
-    const carryOverCount =
-      profileResponse.data?.month_key === monthKey
-        ? profileResponse.data?.monthly_count ?? 0
-        : 0;
-    const monthlyLimit = profileResponse.data?.monthly_limit ?? 3;
-    const role = profileResponse.data?.role ?? "member";
-    const electronicsCarryOver =
-      profileResponse.data?.electronics_month_key === monthKey
-        ? profileResponse.data?.electronics_monthly_count ?? 0
-        : 0;
-    const electronicsLimit =
-      profileResponse.data?.electronics_monthly_limit ?? 3;
-    const hasPassword = profileResponse.data?.has_password ?? false;
+    throw new InviteSyncError("PROFILE_UPSERT_FAILED");
+  }
 
-    const { error: upsertError } = await serviceSupabase
-      .from("profiles")
-      .upsert({
-        id: userId,
-        email,
-        role,
-        monthly_limit: monthlyLimit,
-        monthly_count: carryOverCount,
-        month_key: monthKey,
-        electronics_monthly_limit: electronicsLimit,
-        electronics_monthly_count: electronicsCarryOver,
-        electronics_month_key: monthKey,
-        status: "active",
-        has_password: hasPassword,
-      });
+  const { data: inviteUpdateData, error: inviteUpdateError } = await serviceSupabase
+    .from("invites")
+    .update({
+      used_by: userId,
+      used_at: new Date().toISOString(),
+      status: "used",
+    })
+    .eq("id", inviteId)
+    .eq("status", "active");
 
-    if (upsertError) {
-      throw new InviteSyncError("PROFILE_UPSERT_FAILED");
-    }
+  if (inviteUpdateError || !inviteUpdateData?.length) {
+    throw new InviteSyncError("INVITE_UPDATE_FAILED");
+  }
 
-    const { data: inviteUpdateData, error: inviteUpdateError } = await serviceSupabase
-      .from("invites")
-      .update({
-        used_by: userId,
-        used_at: new Date().toISOString(),
-        status: "used",
-      })
-      .eq("id", inviteId)
-      .eq("status", "active");
+  return "success";
+}
 
-    if (inviteUpdateError || !inviteUpdateData?.length) {
-      throw new InviteSyncError("INVITE_UPDATE_FAILED");
-    }
+async function syncInviteAndProfile(
+  params: SyncInviteParams,
+  supabase: ReturnType<typeof createSupabaseServerClient>
+) {
+  const serviceResult = await syncInviteWithServiceRole(params);
 
+  if (serviceResult === "success") {
     return;
   }
 
   const { error: rpcError } = await supabase.rpc(
     "use_invite_and_sync_profile",
     {
-      invite_code: inviteCode,
-      user_id: userId,
-      email,
-      month_key: monthKey,
+      invite_code: params.inviteCode,
+      user_id: params.userId,
+      email: params.email,
+      month_key: params.monthKey,
     }
   );
 
@@ -491,6 +516,10 @@ export async function handleAuthCallback(
     .maybeSingle();
 
   if (profile.error) {
+    if (shouldFallbackToRpc(profile.error.message)) {
+      return { redirectTo: "/dashboard" };
+    }
+
     return { redirectTo: "/login?error=profile" };
   }
 
