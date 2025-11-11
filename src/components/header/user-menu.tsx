@@ -78,6 +78,14 @@ export function UserMenu({ email, name, avatarUrl }: UserMenuProps) {
                 Aceder ao dashboard
               </Link>
               <Link
+                href="/eletronicos"
+                className="rounded-xl px-3 py-2 text-slate-700 transition hover:bg-champagne/20 hover:text-slate-900"
+                onClick={() => setOpen(false)}
+                role="menuitem"
+              >
+                Dispositivos eletrónicos
+              </Link>
+              <Link
                 href="/proximos-drops"
                 className="rounded-xl px-3 py-2 text-slate-700 transition hover:bg-champagne/20 hover:text-slate-900"
                 onClick={() => setOpen(false)}

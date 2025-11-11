@@ -17,6 +17,10 @@ const reservationSchema = z.object({
   size: z.string().min(1),
 });
 
+const electronicsOrderSchema = z.object({
+  productId: z.string().uuid(),
+});
+
 const dropSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(3),
@@ -102,7 +106,9 @@ async function syncInviteAndProfile({
 
   const profileResponse = await serviceSupabase
     .from("profiles")
-    .select("role, monthly_limit, monthly_count, month_key")
+    .select(
+      "role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key"
+    )
     .eq("id", userId)
     .maybeSingle();
 
@@ -116,6 +122,12 @@ async function syncInviteAndProfile({
       : 0;
   const monthlyLimit = profileResponse.data?.monthly_limit ?? 3;
   const role = profileResponse.data?.role ?? "member";
+  const electronicsCarryOver =
+    profileResponse.data?.electronics_month_key === monthKey
+      ? profileResponse.data?.electronics_monthly_count ?? 0
+      : 0;
+  const electronicsLimit =
+    profileResponse.data?.electronics_monthly_limit ?? 3;
 
   const { error: upsertError } = await serviceSupabase
     .from("profiles")
@@ -126,6 +138,9 @@ async function syncInviteAndProfile({
       monthly_limit: monthlyLimit,
       monthly_count: carryOverCount,
       month_key: monthKey,
+      electronics_monthly_limit: electronicsLimit,
+      electronics_monthly_count: electronicsCarryOver,
+      electronics_month_key: monthKey,
       status: "active",
     });
 
@@ -295,6 +310,82 @@ export async function createReservation(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath('/drops/[slug]', 'page');
   revalidatePath("/proximos-drops");
+  return { success: true };
+}
+
+export async function createElectronicsOrder(formData: FormData) {
+  const supabase = createSupabaseServerClient();
+  const parsed = electronicsOrderSchema.safeParse({
+    productId: formData.get("productId"),
+  });
+
+  if (!parsed.success) {
+    return { error: "Seleção inválida." };
+  }
+
+  const monthKey = getMonthKey();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Autenticação necessária." };
+  }
+
+  const profile = await supabase
+    .from("profiles")
+    .select(
+      "status, electronics_monthly_limit, electronics_monthly_count, electronics_month_key"
+    )
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile.error || !profile.data) {
+    return { error: "Perfil não encontrado." };
+  }
+
+  if (profile.data.status !== "active") {
+    return { error: "Conta inativa." };
+  }
+
+  const currentCount =
+    profile.data.electronics_month_key === monthKey
+      ? profile.data.electronics_monthly_count ?? 0
+      : 0;
+
+  if (currentCount >= (profile.data.electronics_monthly_limit ?? 3)) {
+    return { error: "Limite mensal de eletrónicos atingido." };
+  }
+
+  const product = await supabase
+    .from("electronics_products")
+    .select("status")
+    .eq("id", parsed.data.productId)
+    .maybeSingle();
+
+  if (product.error || !product.data) {
+    return { error: "Produto indisponível." };
+  }
+
+  if (product.data.status === "sold_out") {
+    return { error: "Produto esgotado." };
+  }
+
+  const { error } = await supabase.rpc("create_electronics_order_with_limit", {
+    p_product_id: parsed.data.productId,
+    p_month_key: monthKey,
+  });
+
+  if (error) {
+    const message =
+      error.message && error.message.includes("eletrónicos")
+        ? "Limite mensal de eletrónicos atingido."
+        : "Não foi possível processar o pedido.";
+    return { error: message };
+  }
+
+  revalidatePath("/eletronicos");
+  revalidatePath("/dashboard");
   return { success: true };
 }
 

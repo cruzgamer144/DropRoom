@@ -23,6 +23,7 @@ src/
     (marketing)            # Landing, próximos drops e detalhe
     (auth)                 # Login e callback
     (protected)/dashboard  # Área do membro
+    (protected)/eletronicos  # Catálogo premium de dispositivos
     (admin)/admin          # Painel administrativo
     api/checkout           # Endpoint Stripe (modo teste)
   components/              # UI, landing, dashboard e admin
@@ -60,6 +61,7 @@ npm run seed
    - Perfis sincronizados via `use_invite_and_sync_profile`
    - Convites com leitura pública, escrita apenas admin
    - Reservas protegidas pela função `create_reservation_with_limit` que aplica o limite mensal
+   - Catálogo de eletrónicos protegido pela função `create_electronics_order_with_limit`, com contagem independente
    - Admin determinado pelo campo `role` do perfil (definido nas seeds ou manualmente)
 
 4. **Chaves Supabase** – adicionar a `.env.local`:
@@ -94,7 +96,7 @@ A aplicação ficará disponível em `http://localhost:3000`.
 
 ### Unitários
 
-Cobrem componentes críticos (`CardDrop`, `ReservationForm`, `ProgressBar`).
+Cobrem componentes críticos (`CardDrop`, `ReservationForm`, `ProgressBar`, `ElectronicsPageView`).
 
 ```bash
 npm run test
@@ -150,6 +152,7 @@ npm run test:e2e
 
 - 3 drops de exemplo.
 - 2 convites ativos (`DROP-GOLD01`, `DROP-GOLD02`).
+- Catálogo base de eletrónicos (AirPods, Beats, etc.) com estados variados.
 
 ## Acessibilidade & UX
 

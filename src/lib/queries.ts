@@ -1,10 +1,21 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getMonthKey, parseNumber } from "@/lib/utils";
-import { Drop, Invite, Profile, Reservation } from "@/types/database";
+import {
+  Drop,
+  Invite,
+  Profile,
+  Reservation,
+  ElectronicsProduct,
+} from "@/types/database";
 
 const normalizeDropRecord = (drop: any): Drop => ({
   ...drop,
   price: parseNumber(drop?.price),
+});
+
+const normalizeElectronicsRecord = (product: any): ElectronicsProduct => ({
+  ...product,
+  price: parseNumber(product?.price),
 });
 
 export async function getActiveDrops() {
@@ -52,7 +63,9 @@ export async function getDashboardData() {
   const [profile, reservations] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, status, created_at")
+      .select(
+        "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at"
+      )
       .eq("id", userData.user.id)
       .maybeSingle(),
     supabase
@@ -84,6 +97,39 @@ export async function getDashboardData() {
     reservations: formattedReservations,
     drops,
     monthKey,
+  };
+}
+
+export async function getElectronicsPageData() {
+  const supabase = createSupabaseServerClient();
+  const [{ data: userData }, productsResponse] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("electronics_products")
+      .select(
+        "id, slug, name, description, image_url, price, status, brand, category, highlight, created_at"
+      )
+      .order("highlight", { ascending: false })
+      .order("created_at", { ascending: true }),
+  ]);
+
+  if (!userData.user) {
+    return { profile: null, products: [] as ElectronicsProduct[] };
+  }
+
+  const profileResponse = await supabase
+    .from("profiles")
+    .select(
+      "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at"
+    )
+    .eq("id", userData.user.id)
+    .maybeSingle();
+
+  return {
+    profile: (profileResponse.data as Profile | null) ?? null,
+    products: (productsResponse.data ?? []).map((product) =>
+      normalizeElectronicsRecord(product)
+    ),
   };
 }
 

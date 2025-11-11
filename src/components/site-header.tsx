@@ -61,6 +61,16 @@ export async function SiteHeader() {
                   aria-hidden
                 />
               </Link>
+              <Link
+                href="/eletronicos"
+                className="group relative inline-flex items-center gap-2 rounded-premium border border-champagne/50 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-champagne hover:shadow-premium"
+              >
+                <span className="relative z-10">Eletrónicos</span>
+                <span
+                  className="pointer-events-none absolute inset-0 rounded-premium bg-sheen bg-[length:250%_250%] opacity-0 transition duration-500 group-hover:opacity-100 group-hover:animate-sheen"
+                  aria-hidden
+                />
+              </Link>
               <UserMenu email={profile?.email ?? user.email ?? ""} name={profile?.full_name} avatarUrl={profile?.avatar_url} />
             </>
           ) : (
