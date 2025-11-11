@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { tryCreateSupabaseServiceRoleClient } from "@/lib/supabase-service-role";
 import { getMonthKey } from "@/lib/utils";
+import type { Profile } from "@/types/database";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -110,8 +111,15 @@ interface SyncInviteParams {
 
 type ServiceSyncResult = "success" | "fallback";
 
-const shouldFallbackToRpc = (message: string | null | undefined) =>
-  (message ?? "").toLowerCase().includes("has_password");
+const shouldFallbackToRpc = (message: string | null | undefined) => {
+  const normalized = (message ?? "").toLowerCase();
+
+  return (
+    normalized.includes("has_password") ||
+    (normalized.includes("column") && normalized.includes("does not exist")) ||
+    (normalized.includes("use_invite_and_sync_profile") && normalized.includes("does not exist"))
+  );
+};
 
 async function syncInviteWithServiceRole(
   params: SyncInviteParams
@@ -140,63 +148,109 @@ async function syncInviteWithServiceRole(
 
   const profileResponse = await serviceSupabase
     .from("profiles")
-    .select(
-      "role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, has_password"
-    )
+    .select("*")
     .eq("id", userId)
     .maybeSingle();
 
   if (profileResponse.error) {
-    if (shouldFallbackToRpc(profileResponse.error.message)) {
+    const message = profileResponse.error.message ?? "";
+
+    if (shouldFallbackToRpc(message)) {
+      return "fallback";
+    }
+
+    if (message.toLowerCase().includes("column") && message.toLowerCase().includes("does not exist")) {
       return "fallback";
     }
 
     throw new InviteSyncError("PROFILE_UPSERT_FAILED");
   }
 
+  const record = profileResponse.data as Partial<Profile> | null;
+  const hasColumn = (key: keyof Profile) =>
+    record === null ? true : Object.prototype.hasOwnProperty.call(record, key);
+
   const carryOverCount =
-    profileResponse.data?.month_key === monthKey
-      ? profileResponse.data?.monthly_count ?? 0
+    record && hasColumn("month_key") && hasColumn("monthly_count") && record.month_key === monthKey
+      ? record.monthly_count ?? 0
       : 0;
-  const monthlyLimit = profileResponse.data?.monthly_limit ?? 3;
-  const role = profileResponse.data?.role ?? "member";
   const electronicsCarryOver =
-    profileResponse.data?.electronics_month_key === monthKey
-      ? profileResponse.data?.electronics_monthly_count ?? 0
+    record && hasColumn("electronics_month_key") && hasColumn("electronics_monthly_count") && record.electronics_month_key === monthKey
+      ? record.electronics_monthly_count ?? 0
       : 0;
-  const electronicsLimit = profileResponse.data?.electronics_monthly_limit ?? 3;
-  const hasPassword = profileResponse.data?.has_password ?? false;
 
   const profilePayload: Record<string, unknown> = {
     id: userId,
     email,
-    role,
-    monthly_limit: monthlyLimit,
-    monthly_count: carryOverCount,
-    month_key: monthKey,
-    electronics_monthly_limit: electronicsLimit,
-    electronics_monthly_count: electronicsCarryOver,
-    electronics_month_key: monthKey,
     status: "active",
+    role: record?.role ?? "member",
   };
 
-  if (Object.prototype.hasOwnProperty.call(profileResponse.data ?? {}, "has_password")) {
-    profilePayload.has_password = hasPassword;
+  if (hasColumn("month_key")) {
+    profilePayload.month_key = monthKey;
   }
 
-  const { error: upsertError } = await serviceSupabase
-    .from("profiles")
-    .upsert(profilePayload);
+  if (hasColumn("monthly_limit")) {
+    profilePayload.monthly_limit = record?.monthly_limit ?? 3;
+  }
 
-  if (upsertError) {
+  if (hasColumn("monthly_count")) {
+    profilePayload.monthly_count = carryOverCount;
+  }
+
+  if (hasColumn("electronics_monthly_limit")) {
+    profilePayload.electronics_monthly_limit = record?.electronics_monthly_limit ?? 3;
+  }
+
+  if (hasColumn("electronics_monthly_count")) {
+    profilePayload.electronics_monthly_count = electronicsCarryOver;
+  }
+
+  if (hasColumn("electronics_month_key")) {
+    profilePayload.electronics_month_key = monthKey;
+  }
+
+  if (hasColumn("has_password")) {
+    profilePayload.has_password = record?.has_password ?? false;
+  }
+
+  const optionalKeys = new Set(
+    Object.keys(profilePayload).filter(
+      (key) => !["id", "email"].includes(key)
+    )
+  );
+
+  while (true) {
+    const { error: upsertError } = await serviceSupabase
+      .from("profiles")
+      .upsert(profilePayload);
+
+    if (!upsertError) {
+      break;
+    }
+
+    const errorMessage = upsertError.message?.toLowerCase() ?? "";
+
+    const problematicKey = Array.from(optionalKeys).find((key) => errorMessage.includes(key));
+
+    if (problematicKey) {
+      optionalKeys.delete(problematicKey);
+      delete profilePayload[problematicKey];
+      continue;
+    }
+
     if (shouldFallbackToRpc(upsertError.message)) {
+      return "fallback";
+    }
+
+    if (errorMessage.includes("column") && errorMessage.includes("does not exist")) {
       return "fallback";
     }
 
     throw new InviteSyncError("PROFILE_UPSERT_FAILED");
   }
 
-  const { data: inviteUpdateData, error: inviteUpdateError } = await serviceSupabase
+  const { error: inviteUpdateError } = await serviceSupabase
     .from("invites")
     .update({
       used_by: userId,
@@ -206,7 +260,7 @@ async function syncInviteWithServiceRole(
     .eq("id", inviteId)
     .eq("status", "active");
 
-  if (inviteUpdateError || !inviteUpdateData?.length) {
+  if (inviteUpdateError) {
     throw new InviteSyncError("INVITE_UPDATE_FAILED");
   }
 
