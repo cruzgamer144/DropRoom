@@ -1,19 +1,16 @@
 import { redirect } from "next/navigation";
 import { getDashboardData } from "@/lib/queries";
-import { getMonthKey } from "@/lib/utils";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const data = await getDashboardData();
-  const { profile, reservations, drops } = data;
+  const { profile, reservations, drops, monthKey, isAuthenticated } = data;
 
-  if (!profile) {
+  if (!isAuthenticated || !profile) {
     redirect("/login");
   }
-
-  const monthKey = getMonthKey();
 
   return <DashboardView profile={profile} reservations={reservations} drops={drops} monthKey={monthKey} />;
 }
