@@ -4,7 +4,6 @@ const config = {
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
-    "^uuid$": require.resolve("uuid"),
   },
   transform: {
     "^.+\\.(t|j)sx?$": ["ts-jest", { tsconfig: "tsconfig.json" }],

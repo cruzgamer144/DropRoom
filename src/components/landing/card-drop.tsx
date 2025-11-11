@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Drop } from "@/types/database";
 import { format } from "date-fns";
-import { ptPT } from "date-fns/locale";
+import { pt } from "date-fns/locale";
 import { formatPrice } from "@/lib/utils";
 
 export function CardDrop({ drop }: { drop: Drop }) {
@@ -34,7 +34,7 @@ export function CardDrop({ drop }: { drop: Drop }) {
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-slate-900">{drop.name}</h3>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs uppercase tracking-wide text-slate-600">
-            {format(new Date(drop.drop_date), "d MMM", { locale: ptPT })}
+            {format(new Date(drop.drop_date), "d MMM", { locale: pt })}
           </span>
         </div>
         <p className="flex-1 text-sm text-slate-600 line-clamp-3">{drop.description}</p>
