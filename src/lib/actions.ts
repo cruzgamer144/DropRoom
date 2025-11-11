@@ -118,6 +118,86 @@ async function syncInviteAndProfile(
   }: SyncInviteParams,
   supabase: ReturnType<typeof createSupabaseServerClient>
 ) {
+  const serviceSupabase = tryCreateSupabaseServiceRoleClient();
+
+  if (serviceSupabase) {
+    const inviteResponse = await serviceSupabase
+      .from("invites")
+      .select("id, status")
+      .eq("id", inviteId)
+      .maybeSingle();
+
+    if (
+      inviteResponse.error ||
+      !inviteResponse.data ||
+      inviteResponse.data.status !== "active"
+    ) {
+      throw new InviteSyncError("INVITE_INVALID");
+    }
+
+    const profileResponse = await serviceSupabase
+      .from("profiles")
+      .select(
+        "role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, has_password"
+      )
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileResponse.error) {
+      throw new InviteSyncError("PROFILE_UPSERT_FAILED");
+    }
+
+    const carryOverCount =
+      profileResponse.data?.month_key === monthKey
+        ? profileResponse.data?.monthly_count ?? 0
+        : 0;
+    const monthlyLimit = profileResponse.data?.monthly_limit ?? 3;
+    const role = profileResponse.data?.role ?? "member";
+    const electronicsCarryOver =
+      profileResponse.data?.electronics_month_key === monthKey
+        ? profileResponse.data?.electronics_monthly_count ?? 0
+        : 0;
+    const electronicsLimit =
+      profileResponse.data?.electronics_monthly_limit ?? 3;
+    const hasPassword = profileResponse.data?.has_password ?? false;
+
+    const { error: upsertError } = await serviceSupabase
+      .from("profiles")
+      .upsert({
+        id: userId,
+        email,
+        role,
+        monthly_limit: monthlyLimit,
+        monthly_count: carryOverCount,
+        month_key: monthKey,
+        electronics_monthly_limit: electronicsLimit,
+        electronics_monthly_count: electronicsCarryOver,
+        electronics_month_key: monthKey,
+        status: "active",
+        has_password: hasPassword,
+      });
+
+    if (upsertError) {
+      throw new InviteSyncError("PROFILE_UPSERT_FAILED");
+    }
+
+    const { data: inviteUpdateData, error: inviteUpdateError } = await serviceSupabase
+      .from("invites")
+      .update({
+        used_by: userId,
+        used_at: new Date().toISOString(),
+        status: "used",
+      })
+      .eq("id", inviteId)
+      .eq("status", "active");
+
+    if (inviteUpdateError || !inviteUpdateData?.length) {
+      throw new InviteSyncError("INVITE_UPDATE_FAILED");
+    }
+
+    return;
+  }
+
   const { error: rpcError } = await supabase.rpc(
     "use_invite_and_sync_profile",
     {
@@ -141,84 +221,7 @@ async function syncInviteAndProfile(
     throw new InviteSyncError("INVITE_INVALID");
   }
 
-  const serviceSupabase = tryCreateSupabaseServiceRoleClient();
-
-  if (!serviceSupabase) {
-    throw new InviteSyncError("PROFILE_UPSERT_FAILED");
-  }
-
-  const inviteResponse = await serviceSupabase
-    .from("invites")
-    .select("id, status")
-    .eq("id", inviteId)
-    .maybeSingle();
-
-  if (
-    inviteResponse.error ||
-    !inviteResponse.data ||
-    inviteResponse.data.status !== "active"
-  ) {
-    throw new InviteSyncError("INVITE_INVALID");
-  }
-
-  const profileResponse = await serviceSupabase
-    .from("profiles")
-    .select(
-      "role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, has_password"
-    )
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (profileResponse.error) {
-    throw new InviteSyncError("PROFILE_UPSERT_FAILED");
-  }
-
-  const carryOverCount =
-    profileResponse.data?.month_key === monthKey
-      ? profileResponse.data?.monthly_count ?? 0
-      : 0;
-  const monthlyLimit = profileResponse.data?.monthly_limit ?? 3;
-  const role = profileResponse.data?.role ?? "member";
-  const electronicsCarryOver =
-    profileResponse.data?.electronics_month_key === monthKey
-      ? profileResponse.data?.electronics_monthly_count ?? 0
-      : 0;
-  const electronicsLimit =
-    profileResponse.data?.electronics_monthly_limit ?? 3;
-  const hasPassword = profileResponse.data?.has_password ?? false;
-
-  const { error: upsertError } = await serviceSupabase
-    .from("profiles")
-    .upsert({
-      id: userId,
-      email,
-      role,
-      monthly_limit: monthlyLimit,
-      monthly_count: carryOverCount,
-      month_key: monthKey,
-      electronics_monthly_limit: electronicsLimit,
-      electronics_monthly_count: electronicsCarryOver,
-      electronics_month_key: monthKey,
-      status: "active",
-      has_password: hasPassword,
-    });
-
-  if (upsertError) {
-    throw new InviteSyncError("PROFILE_UPSERT_FAILED");
-  }
-
-  const { error: inviteUpdateError } = await serviceSupabase
-    .from("invites")
-    .update({
-      used_by: userId,
-      used_at: new Date().toISOString(),
-      status: "used",
-    })
-    .eq("id", inviteId);
-
-  if (inviteUpdateError) {
-    throw new InviteSyncError("INVITE_UPDATE_FAILED");
-  }
+  throw new InviteSyncError("PROFILE_UPSERT_FAILED");
 }
 
 export async function submitInviteRequest(formData: FormData) {
