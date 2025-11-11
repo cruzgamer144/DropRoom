@@ -7,7 +7,7 @@ export type Profile = {
   monthly_limit: number;
   monthly_count: number;
   month_key: string;
-  status: "active" | "suspended";
+  status: "active" | "suspended" | "pending";
   created_at: string;
 };
 

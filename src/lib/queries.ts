@@ -52,7 +52,7 @@ export async function getDashboardData() {
   const [profile, reservations] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, status")
+      .select("id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, status, created_at")
       .eq("id", userData.user.id)
       .maybeSingle(),
     supabase

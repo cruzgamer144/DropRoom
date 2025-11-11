@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getMonthKey } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase-service-role";
 
@@ -387,6 +388,14 @@ export async function generateInvites(formData: FormData) {
 
   revalidatePath("/admin");
   return { success: true };
+}
+
+export async function signOut() {
+  const supabase = createSupabaseServerClient();
+  await supabase.auth.signOut();
+  revalidatePath("/");
+  revalidatePath("/dashboard");
+  redirect("/login");
 }
 
 export async function toggleUserStatus(formData: FormData) {
