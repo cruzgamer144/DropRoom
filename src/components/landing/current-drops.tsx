@@ -1,3 +1,5 @@
+"use client";
+
 import { Drop } from "@/types/database";
 import { CardDrop } from "@/components/landing/card-drop";
 import { motion } from "framer-motion";
