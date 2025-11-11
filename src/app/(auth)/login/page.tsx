@@ -15,7 +15,9 @@ export default function LoginPage({ searchParams }: { searchParams?: Record<stri
         <div className="mx-auto max-w-lg space-y-8 rounded-premium border border-slate-100 bg-white/90 p-10 shadow-sm">
           <header className="space-y-2 text-center">
             <h1 className="font-display text-3xl font-semibold text-slate-900">Acesso por Convite</h1>
-            <p className="text-sm text-slate-600">Insere o teu e-mail e código exclusivo para receber o Magic Link.</p>
+            <p className="text-sm text-slate-600">
+              Usa o teu convite DropRoom ou entra com a senha premium que já definiste.
+            </p>
           </header>
           {error && (
             <p className="rounded-premium border border-red-200 bg-red-50 p-4 text-sm text-red-800">

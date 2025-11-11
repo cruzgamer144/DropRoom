@@ -64,7 +64,7 @@ export async function getDashboardData() {
     supabase
       .from("profiles")
       .select(
-        "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at"
+        "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at, has_password"
       )
       .eq("id", userData.user.id)
       .maybeSingle(),
@@ -120,7 +120,7 @@ export async function getElectronicsPageData() {
   const profileResponse = await supabase
     .from("profiles")
     .select(
-      "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at"
+      "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at, has_password"
     )
     .eq("id", userData.user.id)
     .maybeSingle();

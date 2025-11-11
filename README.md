@@ -73,6 +73,14 @@ SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
+## Autenticação por convite + senha
+
+- **Convites premium** – os utilizadores continuam a receber um magic link via `/login` com código de convite. Após o `magic link` são redirecionados para `/set-password` onde definem a primeira senha.
+- **Login tradicional** – o ecrã `/login` oferece agora duas tabs: convite ou email+senha. Quem já definiu senha pode entrar diretamente.
+- **Recuperação de senha** – o link "Esqueceu a senha?" envia um email Supabase com redirect para `/auth/callback?type=recovery`, que troca o token e redireciona para `/reset-password`.
+- **Alteração no dashboard** – o menu do utilizador inclui "Alterar senha", com modal animado que valida a senha atual antes de atualizar.
+- **Flag `has_password`** – o perfil ganha o campo `has_password` (migração `0002_password_support.sql`) para controlar se o utilizador já configurou senha.
+
 ## Ambiente local
 
 ```bash

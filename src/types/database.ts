@@ -12,6 +12,7 @@ export type Profile = {
   electronics_month_key: string;
   status: "active" | "suspended" | "pending";
   created_at: string;
+  has_password: boolean;
 };
 
 export type Drop = {

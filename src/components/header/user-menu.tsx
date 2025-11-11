@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { signOut } from "@/lib/actions";
+import { ChangePasswordForm } from "@/components/auth/change-password-form";
 
 interface UserMenuProps {
   email: string;
@@ -16,6 +17,7 @@ export function UserMenu({ email, name, avatarUrl }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -37,6 +39,8 @@ export function UserMenu({ email, name, avatarUrl }: UserMenuProps) {
       await signOut();
     });
   };
+
+  const closePasswordModal = () => setShowPasswordModal(false);
 
   return (
     <div className="relative" ref={containerRef}>
@@ -95,6 +99,17 @@ export function UserMenu({ email, name, avatarUrl }: UserMenuProps) {
               </Link>
               <button
                 type="button"
+                className="rounded-xl px-3 py-2 text-left text-slate-700 transition hover:bg-champagne/20 hover:text-slate-900"
+                onClick={() => {
+                  setOpen(false);
+                  setShowPasswordModal(true);
+                }}
+                role="menuitem"
+              >
+                Alterar senha
+              </button>
+              <button
+                type="button"
                 className="rounded-xl px-3 py-2 text-left text-slate-700 transition hover:bg-slate-900 hover:text-white"
                 onClick={handleSignOut}
                 disabled={isPending}
@@ -103,6 +118,38 @@ export function UserMenu({ email, name, avatarUrl }: UserMenuProps) {
                 {isPending ? "A terminar sessão…" : "Sair"}
               </button>
             </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showPasswordModal ? (
+          <motion.div
+            key="password-modal"
+            className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            onClick={closePasswordModal}
+          >
+            <motion.div
+              className="mx-4 w-full max-w-md rounded-premium border border-white/40 bg-white/95 p-8 shadow-2xl"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="space-y-6">
+                <div className="space-y-1 text-center">
+                  <h2 className="font-display text-2xl font-semibold text-slate-900">Atualizar senha</h2>
+                  <p className="text-sm text-slate-600">
+                    Mantém a tua conta segura com uma nova senha exclusiva.
+                  </p>
+                </div>
+                <ChangePasswordForm onClose={closePasswordModal} />
+              </div>
+            </motion.div>
           </motion.div>
         ) : null}
       </AnimatePresence>

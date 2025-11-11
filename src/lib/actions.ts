@@ -21,6 +21,47 @@ const electronicsOrderSchema = z.object({
   productId: z.string().uuid(),
 });
 
+const passwordSchema = z
+  .object({
+    password: z.string().min(8),
+    confirmPassword: z.string().min(8),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "As senhas não coincidem.",
+  });
+
+const credentialsSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+const passwordResetSchema = z.object({
+  email: z.string().email(),
+});
+
+const passwordChangeSchema = z
+  .object({
+    currentPassword: z.string().min(6),
+    newPassword: z.string().min(8),
+    confirmPassword: z.string().min(8),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "As senhas não coincidem.",
+  })
+  .refine((data) => data.currentPassword !== data.newPassword, {
+    path: ["newPassword"],
+    message: "A nova senha deve ser diferente da atual.",
+  });
+
+const getSiteUrl = () =>
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
+const extractValidationMessage = (issues: z.ZodIssue[]) =>
+  issues[0]?.message ?? "Dados inválidos.";
+
 const dropSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(3),
@@ -107,7 +148,7 @@ async function syncInviteAndProfile({
   const profileResponse = await serviceSupabase
     .from("profiles")
     .select(
-      "role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key"
+      "role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, has_password"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -128,6 +169,7 @@ async function syncInviteAndProfile({
       : 0;
   const electronicsLimit =
     profileResponse.data?.electronics_monthly_limit ?? 3;
+  const hasPassword = profileResponse.data?.has_password ?? false;
 
   const { error: upsertError } = await serviceSupabase
     .from("profiles")
@@ -142,6 +184,7 @@ async function syncInviteAndProfile({
       electronics_monthly_count: electronicsCarryOver,
       electronics_month_key: monthKey,
       status: "active",
+      has_password: hasPassword,
     });
 
   if (upsertError) {
@@ -186,7 +229,7 @@ export async function submitInviteRequest(formData: FormData) {
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000")}/auth/callback?invite=${parsed.data.code}`,
+      emailRedirectTo: `${getSiteUrl()}/auth/callback?invite=${parsed.data.code}`,
     },
   });
 
@@ -197,11 +240,166 @@ export async function submitInviteRequest(formData: FormData) {
   return { success: true };
 }
 
+async function applyPasswordUpdate(password: string) {
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    return { error: "Autenticação necessária." } as const;
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    password,
+  });
+
+  if (updateError) {
+    return { error: "Não foi possível atualizar a senha." } as const;
+  }
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ has_password: true })
+    .eq("id", user.id);
+
+  if (profileError) {
+    return { error: "Senha atualizada mas o perfil não foi sincronizado." } as const;
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true } as const;
+}
+
+export async function completePasswordSetup(formData: FormData) {
+  const parsed = passwordSchema.safeParse({
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+
+  if (!parsed.success) {
+    return { error: extractValidationMessage(parsed.error.issues) };
+  }
+
+  return applyPasswordUpdate(parsed.data.password);
+}
+
+export async function completePasswordReset(formData: FormData) {
+  const parsed = passwordSchema.safeParse({
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+
+  if (!parsed.success) {
+    return { error: extractValidationMessage(parsed.error.issues) };
+  }
+
+  return applyPasswordUpdate(parsed.data.password);
+}
+
+export async function signInWithPassword(formData: FormData) {
+  const parsed = credentialsSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    return { error: "Credenciais inválidas." };
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+
+  if (error) {
+    return { error: "Email ou senha incorretos." };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function sendPasswordReset(formData: FormData) {
+  const parsed = passwordResetSchema.safeParse({
+    email: formData.get("email"),
+  });
+
+  if (!parsed.success) {
+    return { error: "Email inválido." };
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${getSiteUrl()}/auth/callback?type=recovery`,
+  });
+
+  if (error) {
+    return { error: "Não foi possível enviar o email de recuperação." };
+  }
+
+  return { success: true };
+}
+
+export async function changePassword(formData: FormData) {
+  const parsed = passwordChangeSchema.safeParse({
+    currentPassword: formData.get("currentPassword"),
+    newPassword: formData.get("newPassword"),
+    confirmPassword: formData.get("confirmPassword"),
+  });
+
+  if (!parsed.success) {
+    return { error: extractValidationMessage(parsed.error.issues) };
+  }
+
+  const supabase = createSupabaseServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user || !user.email) {
+    return { error: "Autenticação necessária." };
+  }
+
+  const { error: authError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: parsed.data.currentPassword,
+  });
+
+  if (authError) {
+    return { error: "A senha atual está incorreta." };
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: parsed.data.newPassword,
+  });
+
+  if (updateError) {
+    return { error: "Não foi possível atualizar a senha." };
+  }
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ has_password: true })
+    .eq("id", user.id);
+
+  if (profileError) {
+    return { error: "Senha atualizada mas o perfil não foi sincronizado." };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 export async function handleAuthCallback(
   searchParams: URLSearchParams
 ): Promise<AuthCallbackResult> {
   const inviteCode = searchParams.get("invite");
   const code = searchParams.get("code");
+  const type = searchParams.get("type") ?? "invite";
   const supabase = createSupabaseServerClient();
 
   if (!code) {
@@ -218,7 +416,15 @@ export async function handleAuthCallback(
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !inviteCode) {
+  if (!user) {
+    return { redirectTo: "/login?error=invalid" };
+  }
+
+  if (type === "recovery") {
+    return { redirectTo: "/reset-password" };
+  }
+
+  if (!inviteCode) {
     return { redirectTo: "/login?error=invalid" };
   }
 
@@ -256,7 +462,19 @@ export async function handleAuthCallback(
     return { redirectTo: "/login?error=profile" };
   }
 
-  return { redirectTo: "/dashboard" };
+  const profile = await supabase
+    .from("profiles")
+    .select("has_password")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile.error) {
+    return { redirectTo: "/login?error=profile" };
+  }
+
+  const hasPassword = profile.data?.has_password ?? false;
+
+  return { redirectTo: hasPassword ? "/dashboard" : "/set-password" };
 }
 
 export async function createReservation(formData: FormData) {
