@@ -19,9 +19,13 @@ const resetPasswordReducer = async (
   formData: FormData,
 ): Promise<ResetPasswordState> => {
   const result = await completePasswordReset(formData);
+  const success =
+    result && typeof result === "object" && "success" in result
+      ? Boolean((result as { success?: boolean }).success)
+      : false;
   return {
     error: result?.error ?? "",
-    success: Boolean(result?.success),
+    success,
   };
 };
 
