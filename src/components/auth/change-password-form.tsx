@@ -24,13 +24,18 @@ interface ChangePasswordFormProps {
 export function ChangePasswordForm({ onClose }: ChangePasswordFormProps) {
   const router = useRouter();
   const { pushToast } = useToast();
-  const [state, formAction] = useFormState<ChangePasswordState>(async (_prevState, formData) => {
+  const passwordReducer = async (
+    _prevState: ChangePasswordState,
+    formData: FormData,
+  ): Promise<ChangePasswordState> => {
     const result = await changePassword(formData);
     return {
       error: result?.error ?? "",
       success: Boolean(result?.success),
     };
-  }, initialState);
+  };
+
+  const [state, formAction] = useFormState<ChangePasswordState>(passwordReducer, initialState);
 
   useEffect(() => {
     if (state.error) {
