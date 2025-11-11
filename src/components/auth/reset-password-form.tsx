@@ -12,6 +12,19 @@ import { useToast } from "@/components/ui/toaster";
 
 const initialState = { error: "", success: false };
 
+type ResetPasswordState = typeof initialState;
+
+const resetPasswordReducer = async (
+  _prevState: ResetPasswordState,
+  formData: FormData,
+): Promise<ResetPasswordState> => {
+  const result = await completePasswordReset(formData);
+  return {
+    error: result?.error ?? "",
+    success: Boolean(result?.success),
+  };
+};
+
 interface ResetPasswordFormProps {
   email?: string;
 }
@@ -19,13 +32,10 @@ interface ResetPasswordFormProps {
 export function ResetPasswordForm({ email }: ResetPasswordFormProps) {
   const router = useRouter();
   const { pushToast } = useToast();
-  const [state, formAction] = useFormState(async (_prevState, formData) => {
-    const result = await completePasswordReset(formData);
-    return {
-      error: result?.error ?? "",
-      success: Boolean(result?.success),
-    };
-  }, initialState);
+  const [state, formAction] = useFormState<ResetPasswordState>(
+    resetPasswordReducer,
+    initialState,
+  );
 
   useEffect(() => {
     if (state.error) {
