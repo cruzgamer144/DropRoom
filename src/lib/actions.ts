@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getMonthKey } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
@@ -49,6 +48,10 @@ class InviteSyncError extends Error {
     super(code);
     this.name = "InviteSyncError";
   }
+}
+
+interface AuthCallbackResult {
+  redirectTo: string;
 }
 
 interface SyncInviteParams {
@@ -178,19 +181,21 @@ export async function submitInviteRequest(formData: FormData) {
   return { success: true };
 }
 
-export async function handleAuthCallback(searchParams: URLSearchParams) {
+export async function handleAuthCallback(
+  searchParams: URLSearchParams
+): Promise<AuthCallbackResult> {
   const inviteCode = searchParams.get("invite");
   const code = searchParams.get("code");
   const supabase = createSupabaseServerClient();
 
   if (!code) {
-    redirect("/login?error=invalid");
+    return { redirectTo: "/login?error=invalid" };
   }
 
   const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
 
   if (sessionError) {
-    redirect("/login?error=invalid");
+    return { redirectTo: "/login?error=invalid" };
   }
 
   const {
@@ -198,7 +203,7 @@ export async function handleAuthCallback(searchParams: URLSearchParams) {
   } = await supabase.auth.getUser();
 
   if (!user || !inviteCode) {
-    redirect("/login?error=invalid");
+    return { redirectTo: "/login?error=invalid" };
   }
 
   const invite = await supabase
@@ -208,13 +213,13 @@ export async function handleAuthCallback(searchParams: URLSearchParams) {
     .maybeSingle();
 
   if (!invite.data || invite.data.status === "used") {
-    redirect("/login?error=invite");
+    return { redirectTo: "/login?error=invite" };
   }
 
   const email = user.email;
 
   if (!email) {
-    redirect("/login?error=profile");
+    return { redirectTo: "/login?error=profile" };
   }
 
   const monthKey = getMonthKey();
@@ -229,13 +234,13 @@ export async function handleAuthCallback(searchParams: URLSearchParams) {
     });
   } catch (error) {
     if (error instanceof InviteSyncError && error.code === "INVITE_INVALID") {
-      redirect("/login?error=invite");
+      return { redirectTo: "/login?error=invite" };
     }
 
-    redirect("/login?error=profile");
+    return { redirectTo: "/login?error=profile" };
   }
 
-  redirect("/dashboard");
+  return { redirectTo: "/dashboard" };
 }
 
 export async function createReservation(formData: FormData) {
