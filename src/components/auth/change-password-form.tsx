@@ -35,7 +35,7 @@ export function ChangePasswordForm({ onClose }: ChangePasswordFormProps) {
     };
   };
 
-  const [state, formAction] = useFormState<ChangePasswordState>(passwordReducer, initialState);
+  const [state, formAction] = useFormState(passwordReducer, initialState);
 
   useEffect(() => {
     if (state.error) {
