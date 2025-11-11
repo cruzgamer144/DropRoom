@@ -21,7 +21,7 @@ export function DashboardView({ profile, reservations, drops, monthKey }: Dashbo
 
   const { currentCount, limitReached, activeReservations, accountStatusLabel } = useMemo(() => {
     const active = reservations.filter((reservation) => reservation.status !== "cancelado");
-    const current = profile.month_key === monthKey ? profile.monthly_count : 0;
+    const current = active.filter((reservation) => (reservation.month_key ?? monthKey) === monthKey).length;
     const limit = current >= profile.monthly_limit;
     const accountLabel =
       profile.status === "active" ? "Ativa" : profile.status === "suspended" ? "Suspensa" : "Pendente";
