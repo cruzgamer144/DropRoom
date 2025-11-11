@@ -1,0 +1,158 @@
+"use client";
+
+import { useEffect, useRef, useState, useTransition } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import Link from "next/link";
+import Image from "next/image";
+import { signOut } from "@/lib/actions";
+import { ChangePasswordForm } from "@/components/auth/change-password-form";
+
+interface UserMenuProps {
+  email: string;
+  name?: string | null;
+  avatarUrl?: string | null;
+}
+
+export function UserMenu({ email, name, avatarUrl }: UserMenuProps) {
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const initials = name?.trim().charAt(0)?.toUpperCase() || email.charAt(0)?.toUpperCase() || "DR";
+
+  const handleSignOut = () => {
+    setOpen(false);
+    startTransition(async () => {
+      await signOut();
+    });
+  };
+
+  const closePasswordModal = () => setShowPasswordModal(false);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-champagne/60 bg-white text-sm font-medium text-slate-900 shadow-sm transition hover:border-champagne hover:shadow-premium"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {avatarUrl ? (
+          <Image src={avatarUrl} alt="Avatar do utilizador" width={40} height={40} className="h-full w-full object-cover" />
+        ) : (
+          <span>{initials}</span>
+        )}
+      </button>
+      <AnimatePresence>
+        {open ? (
+          <motion.div
+            key="menu"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute right-0 mt-3 w-60 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-xl"
+            role="menu"
+          >
+            <div className="space-y-1 border-b border-slate-100 px-4 py-3 text-sm">
+              <p className="font-semibold text-slate-900">{name ?? "Membro DropRoom"}</p>
+              <p className="text-xs text-slate-500">{email}</p>
+            </div>
+            <div className="flex flex-col gap-1 p-2 text-sm">
+              <Link
+                href="/dashboard"
+                className="rounded-xl px-3 py-2 text-slate-700 transition hover:bg-champagne/20 hover:text-slate-900"
+                onClick={() => setOpen(false)}
+                role="menuitem"
+              >
+                Aceder ao dashboard
+              </Link>
+              <Link
+                href="/eletronicos"
+                className="rounded-xl px-3 py-2 text-slate-700 transition hover:bg-champagne/20 hover:text-slate-900"
+                onClick={() => setOpen(false)}
+                role="menuitem"
+              >
+                Dispositivos eletrónicos
+              </Link>
+              <Link
+                href="/proximos-drops"
+                className="rounded-xl px-3 py-2 text-slate-700 transition hover:bg-champagne/20 hover:text-slate-900"
+                onClick={() => setOpen(false)}
+                role="menuitem"
+              >
+                Novos drops
+              </Link>
+              <button
+                type="button"
+                className="rounded-xl px-3 py-2 text-left text-slate-700 transition hover:bg-champagne/20 hover:text-slate-900"
+                onClick={() => {
+                  setOpen(false);
+                  setShowPasswordModal(true);
+                }}
+                role="menuitem"
+              >
+                Alterar senha
+              </button>
+              <button
+                type="button"
+                className="rounded-xl px-3 py-2 text-left text-slate-700 transition hover:bg-slate-900 hover:text-white"
+                onClick={handleSignOut}
+                disabled={isPending}
+                role="menuitem"
+              >
+                {isPending ? "A terminar sessão…" : "Sair"}
+              </button>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showPasswordModal ? (
+          <motion.div
+            key="password-modal"
+            className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            onClick={closePasswordModal}
+          >
+            <motion.div
+              className="mx-4 w-full max-w-md rounded-premium border border-white/40 bg-white/95 p-8 shadow-2xl"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="space-y-6">
+                <div className="space-y-1 text-center">
+                  <h2 className="font-display text-2xl font-semibold text-slate-900">Atualizar senha</h2>
+                  <p className="text-sm text-slate-600">
+                    Mantém a tua conta segura com uma nova senha exclusiva.
+                  </p>
+                </div>
+                <ChangePasswordForm onClose={closePasswordModal} />
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}

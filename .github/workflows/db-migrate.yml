@@ -1,0 +1,33 @@
+name: Apply DB migrations
+
+on:
+  push:
+    paths:
+      - 'supabase/migrations/**'
+      - '.github/workflows/db-migrate.yml'
+  workflow_dispatch:
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      NODE_TLS_REJECT_UNAUTHORIZED: '0'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pg dependency
+        run: npm install pg
+
+      - name: Run Supabase migrations
+        run: node supabase/scripts/run-migrations.mjs
+
+      - name: Run Supabase seeds
+        if: success()
+        run: node supabase/scripts/run-seeds.mjs
