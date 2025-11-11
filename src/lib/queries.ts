@@ -76,21 +76,29 @@ export async function getDashboardData() {
       .limit(10),
   ]);
 
-  const formattedReservations = (reservations.data ?? []).map((reservation) => ({
-    id: reservation.id,
-    user_id: reservation.user_id,
-    drop_id: reservation.drop_id,
-    size: reservation.size,
-    status: reservation.status,
-    created_at: reservation.created_at,
-    month_key: reservation.month_key,
-    drop: reservation.drops
-      ? {
-          ...reservation.drops,
-          price: parseNumber(reservation.drops.price),
-        }
-      : null,
-  }));
+  const formattedReservations: Reservation[] = (reservations.data ?? []).map((reservation) => {
+    const relatedDrop = Array.isArray(reservation.drops)
+      ? reservation.drops[0]
+      : reservation.drops;
+
+    return {
+      id: reservation.id,
+      user_id: reservation.user_id,
+      drop_id: reservation.drop_id,
+      size: reservation.size,
+      status: reservation.status,
+      created_at: reservation.created_at,
+      month_key: reservation.month_key,
+      drop: relatedDrop
+        ? {
+            name: relatedDrop.name,
+            slug: relatedDrop.slug,
+            image_url: relatedDrop.image_url ?? null,
+            price: parseNumber(relatedDrop.price),
+          }
+        : null,
+    };
+  });
 
   return {
     profile: (profile.data as Profile | null) ?? null,

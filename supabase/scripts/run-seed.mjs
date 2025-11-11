@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { Client } from "pg";
+import pg from "pg";
+
+const { Client } = pg;
 
 const connectionString = process.env.SUPABASE_DB_URL;
 
