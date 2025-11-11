@@ -19,6 +19,7 @@ const baseProfile: Profile = {
   full_name: "VIP",
   avatar_url: null,
   role: "member",
+  has_password: true,
   monthly_limit: 3,
   monthly_count: 1,
   month_key: "2024-07",

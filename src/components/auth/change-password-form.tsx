@@ -10,7 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toaster";
 
-const initialState = { error: "", success: false };
+type ChangePasswordState = {
+  error: string;
+  success: boolean;
+};
+
+const initialState: ChangePasswordState = { error: "", success: false };
 
 interface ChangePasswordFormProps {
   onClose: () => void;
@@ -19,7 +24,7 @@ interface ChangePasswordFormProps {
 export function ChangePasswordForm({ onClose }: ChangePasswordFormProps) {
   const router = useRouter();
   const { pushToast } = useToast();
-  const [state, formAction] = useFormState(async (_prevState, formData) => {
+  const [state, formAction] = useFormState<ChangePasswordState>(async (_prevState, formData) => {
     const result = await changePassword(formData);
     return {
       error: result?.error ?? "",
