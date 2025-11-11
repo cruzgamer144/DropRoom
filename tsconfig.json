@@ -19,17 +19,11 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "types": [
-      "jest",
-      "@types/jest",
-      "@testing-library/jest-dom"
-    ],
-    "noEmit": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+    "types": ["jest", "@types/jest", "@testing-library/jest-dom"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": [
     "next-env.d.ts",
