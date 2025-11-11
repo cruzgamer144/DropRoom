@@ -75,7 +75,19 @@ export async function submitInviteRequest(formData: FormData) {
 
 export async function handleAuthCallback(searchParams: URLSearchParams) {
   const inviteCode = searchParams.get("invite");
+  const code = searchParams.get("code");
   const supabase = createSupabaseServerClient();
+
+  if (!code) {
+    redirect("/login?error=invalid");
+  }
+
+  const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (sessionError) {
+    redirect("/login?error=invalid");
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
