@@ -39,6 +39,110 @@ const inviteAdminSchema = z.object({
   amount: z.number().int().min(1).max(20),
 });
 
+class InviteSyncError extends Error {
+  constructor(
+    readonly code:
+      | "INVITE_INVALID"
+      | "INVITE_UPDATE_FAILED"
+      | "PROFILE_UPSERT_FAILED"
+  ) {
+    super(code);
+    this.name = "InviteSyncError";
+  }
+}
+
+interface SyncInviteParams {
+  inviteId: string;
+  inviteCode: string;
+  userId: string;
+  email: string;
+  monthKey: string;
+}
+
+async function syncInviteAndProfile({
+  inviteId,
+  inviteCode,
+  userId,
+  email,
+  monthKey,
+}: SyncInviteParams) {
+  const serviceSupabase = createSupabaseServiceRoleClient();
+
+  const { error: rpcError } = await serviceSupabase.rpc(
+    "use_invite_and_sync_profile",
+    {
+      invite_code: inviteCode,
+      user_id: userId,
+      email,
+      month_key: monthKey,
+    }
+  );
+
+  if (!rpcError) {
+    return;
+  }
+
+  const inviteResponse = await serviceSupabase
+    .from("invites")
+    .select("id, status")
+    .eq("id", inviteId)
+    .maybeSingle();
+
+  if (
+    inviteResponse.error ||
+    !inviteResponse.data ||
+    inviteResponse.data.status !== "active"
+  ) {
+    throw new InviteSyncError("INVITE_INVALID");
+  }
+
+  const profileResponse = await serviceSupabase
+    .from("profiles")
+    .select("role, monthly_limit, monthly_count, month_key")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileResponse.error) {
+    throw new InviteSyncError("PROFILE_UPSERT_FAILED");
+  }
+
+  const carryOverCount =
+    profileResponse.data?.month_key === monthKey
+      ? profileResponse.data?.monthly_count ?? 0
+      : 0;
+  const monthlyLimit = profileResponse.data?.monthly_limit ?? 3;
+  const role = profileResponse.data?.role ?? "member";
+
+  const { error: upsertError } = await serviceSupabase
+    .from("profiles")
+    .upsert({
+      id: userId,
+      email,
+      role,
+      monthly_limit: monthlyLimit,
+      monthly_count: carryOverCount,
+      month_key: monthKey,
+      status: "active",
+    });
+
+  if (upsertError) {
+    throw new InviteSyncError("PROFILE_UPSERT_FAILED");
+  }
+
+  const { error: inviteUpdateError } = await serviceSupabase
+    .from("invites")
+    .update({
+      used_by: userId,
+      used_at: new Date().toISOString(),
+      status: "used",
+    })
+    .eq("id", inviteId);
+
+  if (inviteUpdateError) {
+    throw new InviteSyncError("INVITE_UPDATE_FAILED");
+  }
+}
+
 export async function submitInviteRequest(formData: FormData) {
   const supabase = createSupabaseServerClient();
   const parsed = inviteSchema.safeParse({
@@ -107,18 +211,27 @@ export async function handleAuthCallback(searchParams: URLSearchParams) {
     redirect("/login?error=invite");
   }
 
+  const email = user.email;
+
+  if (!email) {
+    redirect("/login?error=profile");
+  }
+
   const monthKey = getMonthKey();
 
-  const serviceSupabase = createSupabaseServiceRoleClient();
+  try {
+    await syncInviteAndProfile({
+      inviteId: invite.data.id,
+      inviteCode,
+      userId: user.id,
+      email,
+      monthKey,
+    });
+  } catch (error) {
+    if (error instanceof InviteSyncError && error.code === "INVITE_INVALID") {
+      redirect("/login?error=invite");
+    }
 
-  const { error } = await serviceSupabase.rpc("use_invite_and_sync_profile", {
-    invite_code: inviteCode,
-    user_id: user.id,
-    email: user.email,
-    month_key: monthKey,
-  });
-
-  if (error) {
     redirect("/login?error=profile");
   }
 
