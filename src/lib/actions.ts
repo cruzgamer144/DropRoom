@@ -1,11 +1,11 @@
 "use server";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { tryCreateSupabaseServiceRoleClient } from "@/lib/supabase-service-role";
 import { getMonthKey } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase-service-role";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -108,16 +108,17 @@ interface SyncInviteParams {
   monthKey: string;
 }
 
-async function syncInviteAndProfile({
-  inviteId,
-  inviteCode,
-  userId,
-  email,
-  monthKey,
-}: SyncInviteParams) {
-  const serviceSupabase = createSupabaseServiceRoleClient();
-
-  const { error: rpcError } = await serviceSupabase.rpc(
+async function syncInviteAndProfile(
+  {
+    inviteId,
+    inviteCode,
+    userId,
+    email,
+    monthKey,
+  }: SyncInviteParams,
+  supabase: ReturnType<typeof createSupabaseServerClient>
+) {
+  const { error: rpcError } = await supabase.rpc(
     "use_invite_and_sync_profile",
     {
       invite_code: inviteCode,
@@ -129,6 +130,21 @@ async function syncInviteAndProfile({
 
   if (!rpcError) {
     return;
+  }
+
+  const normalizedError = rpcError.message?.toLowerCase() ?? "";
+
+  if (
+    normalizedError.includes("convite inexistente") ||
+    normalizedError.includes("convite já utilizado")
+  ) {
+    throw new InviteSyncError("INVITE_INVALID");
+  }
+
+  const serviceSupabase = tryCreateSupabaseServiceRoleClient();
+
+  if (!serviceSupabase) {
+    throw new InviteSyncError("PROFILE_UPSERT_FAILED");
   }
 
   const inviteResponse = await serviceSupabase
@@ -447,13 +463,16 @@ export async function handleAuthCallback(
   const monthKey = getMonthKey();
 
   try {
-    await syncInviteAndProfile({
-      inviteId: invite.data.id,
-      inviteCode,
-      userId: user.id,
-      email,
-      monthKey,
-    });
+    await syncInviteAndProfile(
+      {
+        inviteId: invite.data.id,
+        inviteCode,
+        userId: user.id,
+        email,
+        monthKey,
+      },
+      supabase
+    );
   } catch (error) {
     if (error instanceof InviteSyncError && error.code === "INVITE_INVALID") {
       return { redirectTo: "/login?error=invite" };

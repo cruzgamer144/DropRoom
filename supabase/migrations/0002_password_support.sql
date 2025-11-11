@@ -39,3 +39,5 @@ begin
     status = 'active';
 end;
 $$;
+
+grant execute on function public.use_invite_and_sync_profile(text, uuid, text, text) to authenticated;

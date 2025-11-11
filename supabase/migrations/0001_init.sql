@@ -133,6 +133,8 @@ begin
 end;
 $$;
 
+grant execute on function public.use_invite_and_sync_profile(text, uuid, text, text) to authenticated;
+
 create or replace function public.create_reservation_with_limit(
   p_drop_id uuid,
   p_size text,

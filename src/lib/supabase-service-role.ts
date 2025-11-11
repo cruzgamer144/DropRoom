@@ -4,6 +4,14 @@ import { getSupabaseConfig } from "@/lib/supabase-config";
 
 const { supabaseUrl } = getSupabaseConfig();
 
+const createClientWithKey = (serviceRoleKey: string) =>
+  createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+
 export const createSupabaseServiceRoleClient = () => {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -13,11 +21,16 @@ export const createSupabaseServiceRoleClient = () => {
     );
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
+  return createClientWithKey(serviceRoleKey);
+};
+
+export const tryCreateSupabaseServiceRoleClient = () => {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!serviceRoleKey) {
+    return null;
+  }
+
+  return createClientWithKey(serviceRoleKey);
 };
 
