@@ -8,6 +8,9 @@ import {
   ElectronicsProduct,
 } from "@/types/database";
 
+const PROFILE_FIELDS =
+  "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at, has_password";
+
 const normalizeDropRecord = (drop: any): Drop => ({
   ...drop,
   price: parseNumber(drop?.price),
@@ -60,14 +63,15 @@ export async function getDashboardData() {
 
   const monthKey = getMonthKey();
 
-  const [profile, reservations] = await Promise.all([
+  const fetchProfile = () =>
     supabase
       .from("profiles")
-      .select(
-        "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at, has_password"
-      )
-      .eq("id", userData.user.id)
-      .maybeSingle(),
+      .select(PROFILE_FIELDS)
+      .eq("id", userData.user!.id)
+      .maybeSingle();
+
+  const [profile, reservations] = await Promise.all([
+    fetchProfile(),
     supabase
       .from("reservations")
       .select("id, user_id, drop_id, size, status, created_at, month_key, drops(name, slug, image_url, price)")
@@ -75,6 +79,24 @@ export async function getDashboardData() {
       .order("created_at", { ascending: false })
       .limit(10),
   ]);
+
+  let profileRecord = (profile.data as Profile | null) ?? null;
+
+  if (!profileRecord && userData.user.email) {
+    const monthKeyForInsert = monthKey;
+    const { error: insertError } = await supabase.from("profiles").upsert({
+      id: userData.user.id,
+      email: userData.user.email,
+      status: "active",
+      month_key: monthKeyForInsert,
+      electronics_month_key: monthKeyForInsert,
+    });
+
+    if (!insertError) {
+      const refreshedProfile = await fetchProfile();
+      profileRecord = (refreshedProfile.data as Profile | null) ?? null;
+    }
+  }
 
   const formattedReservations: Reservation[] = (reservations.data ?? []).map((reservation) => {
     const relatedDrop = Array.isArray(reservation.drops)
@@ -101,7 +123,7 @@ export async function getDashboardData() {
   });
 
   return {
-    profile: (profile.data as Profile | null) ?? null,
+    profile: profileRecord,
     reservations: formattedReservations,
     drops,
     monthKey,
@@ -127,14 +149,35 @@ export async function getElectronicsPageData() {
 
   const profileResponse = await supabase
     .from("profiles")
-    .select(
-      "id, email, full_name, avatar_url, role, monthly_limit, monthly_count, month_key, electronics_monthly_limit, electronics_monthly_count, electronics_month_key, status, created_at, has_password"
-    )
+    .select(PROFILE_FIELDS)
     .eq("id", userData.user.id)
     .maybeSingle();
 
+  let profileRecord = (profileResponse.data as Profile | null) ?? null;
+
+  if (!profileRecord && userData.user.email) {
+    const monthKeyForInsert = getMonthKey();
+    const { error: insertError } = await supabase.from("profiles").upsert({
+      id: userData.user.id,
+      email: userData.user.email,
+      status: "active",
+      month_key: monthKeyForInsert,
+      electronics_month_key: monthKeyForInsert,
+    });
+
+    if (!insertError) {
+      const refreshedProfile = await supabase
+        .from("profiles")
+        .select(PROFILE_FIELDS)
+        .eq("id", userData.user.id)
+        .maybeSingle();
+
+      profileRecord = (refreshedProfile.data as Profile | null) ?? null;
+    }
+  }
+
   return {
-    profile: (profileResponse.data as Profile | null) ?? null,
+    profile: profileRecord,
     products: (productsResponse.data ?? []).map((product) =>
       normalizeElectronicsRecord(product)
     ),
