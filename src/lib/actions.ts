@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getMonthKey } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase-service-role";
 
 const inviteSchema = z.object({
   email: z.string().email(),
@@ -108,7 +109,9 @@ export async function handleAuthCallback(searchParams: URLSearchParams) {
 
   const monthKey = getMonthKey();
 
-  const { error } = await supabase.rpc("use_invite_and_sync_profile", {
+  const serviceSupabase = createSupabaseServiceRoleClient();
+
+  const { error } = await serviceSupabase.rpc("use_invite_and_sync_profile", {
     invite_code: inviteCode,
     user_id: user.id,
     email: user.email,
