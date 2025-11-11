@@ -18,29 +18,35 @@ export function LoginForm() {
   const [view, setView] = useState<"invite" | "password">("invite");
   const [showReset, setShowReset] = useState(false);
 
-  const [inviteState, inviteAction] = useFormState(async (_prev, formData) => {
+  const inviteReducer = async (_prevState: typeof initialState, formData: FormData) => {
     const result = await submitInviteRequest(formData);
     return {
       error: result?.error ?? "",
       success: Boolean(result?.success),
     };
-  }, initialState);
+  };
 
-  const [passwordState, passwordAction] = useFormState(async (_prev, formData) => {
+  const passwordReducer = async (_prevState: typeof initialState, formData: FormData) => {
     const result = await signInWithPassword(formData);
     return {
       error: result?.error ?? "",
       success: Boolean(result?.success),
     };
-  }, initialState);
+  };
 
-  const [resetState, resetAction] = useFormState(async (_prev, formData) => {
+  const resetReducer = async (_prevState: typeof initialState, formData: FormData) => {
     const result = await sendPasswordReset(formData);
     return {
       error: result?.error ?? "",
       success: Boolean(result?.success),
     };
-  }, initialState);
+  };
+
+  const [inviteState, inviteAction] = useFormState(inviteReducer, initialState);
+
+  const [passwordState, passwordAction] = useFormState(passwordReducer, initialState);
+
+  const [resetState, resetAction] = useFormState(resetReducer, initialState);
 
   useEffect(() => {
     if (inviteState.error) {
