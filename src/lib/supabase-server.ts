@@ -14,10 +14,18 @@ export const createSupabaseServerClient = () => {
         return cookieStore.get(name)?.value;
       },
       set(name: string, value: string, options: any) {
-        cookieStore.set({ name, value, ...options });
+        try {
+          cookieStore.set({ name, value, ...options });
+        } catch {
+          // noop - setting cookies is only supported inside route handlers or server actions
+        }
       },
       remove(name: string, options: any) {
-        cookieStore.delete({ name, ...options });
+        try {
+          cookieStore.delete({ name, ...options });
+        } catch {
+          // noop - deleting cookies is only supported inside route handlers or server actions
+        }
       },
     },
   });
